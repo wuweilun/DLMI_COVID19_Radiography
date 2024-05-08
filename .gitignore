@@ -1,0 +1,8 @@
+
+COVID-19_Radiography_Dataset/*
+wandb/*
+*png
+*jpg
+*pth
+output/*
+*.zip
