@@ -2,16 +2,18 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import torch.nn as nn
+import torch.nn.functional as F
 
 def dice_coef_loss(inputs, target):
     smooth = 1e-5
+    inputs = F.sigmoid(inputs)
     intersection = 2.0 * (target*inputs).sum() + smooth
     union = target.sum() + inputs.sum() + smooth
     return 1 - (intersection/union)
 
 def bce_dice_loss(inputs, target):
     dice_score = dice_coef_loss(inputs, target)
-    bce_loss = nn.BCELoss()
+    bce_loss = nn.BCEWithLogitsLoss()
     bce_score = bce_loss(inputs, target)
     
     return bce_score + dice_score

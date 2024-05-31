@@ -14,11 +14,12 @@ from torchvision import models
 from torch.utils.data import random_split, Dataset, DataLoader
 from utils import CustomDataset, bce_dice_loss, Trainer, JointTransform
 import segmentation_models_pytorch as smp
-from torchvision.models import convnext_base, densenet161, efficientnet_v2_l, resnext101_64x4d, swin_b, vit_l_16
+from torchvision.models import convnext_base, densenet161, efficientnet_v2_l, resnext101_64x4d, swin_b, vit_b_16
 torch.manual_seed(123)
 
 def get_model(model_name):
     num_classes = 4 
+    default_size = 224
     if model_name == "convnext_base":
         model = convnext_base(weights='ConvNeXt_Base_Weights.IMAGENET1K_V1')
         model.classifier = nn.Sequential(
@@ -26,7 +27,7 @@ def get_model(model_name):
             nn.ReLU(),
             nn.Linear(1000, num_classes)
         )
-        return None, torch.nn.CrossEntropyLoss(), model
+        return default_size, None, torch.nn.CrossEntropyLoss(), model
     elif model_name == "densenet161":
         model = densenet161(weights='DenseNet161_Weights.IMAGENET1K_V1')
         model.classifier = nn.Sequential(
@@ -34,63 +35,63 @@ def get_model(model_name):
             nn.ReLU(),
             nn.Linear(1000, num_classes)
         )
-        return None, torch.nn.CrossEntropyLoss(), model
+        return default_size, None, torch.nn.CrossEntropyLoss(), model
     elif model_name == "efficientnet_v2_l":
         model = efficientnet_v2_l(weights='EfficientNet_V2_L_Weights.IMAGENET1K_V1')
         model.classifier[1] = nn.Sequential(
             model.classifier[1],
             nn.ReLU(),
-            nn.Linear(model.classifier[1].out_features, num_classes)
+            nn.Linear(1000, num_classes)
         )
-        return None, torch.nn.CrossEntropyLoss(), model
+        return default_size, None, torch.nn.CrossEntropyLoss(), model
     elif model_name == "resnext101_64x4d":
         model = resnext101_64x4d(weights='ResNeXt101_64X4D_Weights.IMAGENET1K_V1')
         model.fc = nn.Sequential(
             model.fc,
             nn.ReLU(),
-            nn.Linear(model.fc.out_features, num_classes)
+            nn.Linear(1000, num_classes)
         )
-        return None, torch.nn.CrossEntropyLoss(), model
+        return default_size, None, torch.nn.CrossEntropyLoss(), model
     elif model_name == "swin_b":
         model = swin_b(weights='Swin_B_Weights.IMAGENET1K_V1')
         model.head = nn.Sequential(
             model.head,
             nn.ReLU(),
-            nn.Linear(model.head.out_features, num_classes)
+            nn.Linear(1000, num_classes)
         )
-        return None, torch.nn.CrossEntropyLoss(), model
-    elif model_name == "vit_l_16":
-        model = vit_l_16(weights='ViT_L_16_Weights.IMAGENET1K_SWAG_E2E_V1')
+        return default_size, None, torch.nn.CrossEntropyLoss(), model
+    elif model_name == "vit_b_16":
+        model = vit_b_16(weights='ViT_B_16_Weights.IMAGENET1K_V1')
         model.heads = nn.Sequential(
             model.heads,
             nn.ReLU(),
-            nn.Linear(model.heads.out_features, num_classes)
+            nn.Linear(1000, num_classes)
         )
-        return None, torch.nn.CrossEntropyLoss(), model
+        return default_size, None, torch.nn.CrossEntropyLoss(), model
     elif model_name == "unet":
-        return bce_dice_loss, None, smp.Unet(encoder_name="resnet50", encoder_weights="imagenet", in_channels=1, classes=1)
+        return default_size, bce_dice_loss, None, smp.Unet(encoder_name="resnet50", encoder_weights="imagenet", in_channels=3, classes=1)
     elif model_name == "unet++":
-        return bce_dice_loss, None, smp.UnetPlusPlus(encoder_name="resnet50", encoder_weights="imagenet", in_channels=1, classes=1)
+        return default_size, bce_dice_loss, None, smp.UnetPlusPlus(encoder_name="resnet50", encoder_weights="imagenet", in_channels=3, classes=1)
     elif model_name == "manet":
-        return bce_dice_loss, None, smp.MAnet(encoder_name="resnet50", encoder_weights="imagenet", in_channels=1, classes=1)
+        return default_size, bce_dice_loss, None, smp.MAnet(encoder_name="resnet50", encoder_weights="imagenet", in_channels=3, classes=1)
     elif model_name == "linknet":
-        return bce_dice_loss, None, smp.Linknet(encoder_name="resnet50", encoder_weights="imagenet", in_channels=1, classes=1)
+        return default_size, bce_dice_loss, None, smp.Linknet(encoder_name="resnet50", encoder_weights="imagenet", in_channels=3, classes=1)
     elif model_name == "fpn":
-        return bce_dice_loss, None, smp.FPN(encoder_name="resnet50", encoder_weights="imagenet", in_channels=1, classes=1)
+        return default_size, bce_dice_loss, None, smp.FPN(encoder_name="resnet50", encoder_weights="imagenet", in_channels=3, classes=1)
     elif model_name == "pspnet":
-        return bce_dice_loss, None, smp.PSPNet(encoder_name="resnet50", encoder_weights="imagenet", in_channels=1, classes=1)
+        return default_size, bce_dice_loss, None, smp.PSPNet(encoder_name="resnet50", encoder_weights="imagenet", in_channels=3, classes=1)
     elif model_name == "pan":
-        return bce_dice_loss, None, smp.PAN(encoder_name="resnet50", encoder_weights="imagenet", in_channels=1, classes=1)
+        return default_size, bce_dice_loss, None, smp.PAN(encoder_name="resnet50", encoder_weights="imagenet", in_channels=3, classes=1)
     elif model_name == "deeplabv3":
-        return bce_dice_loss, None, smp.DeepLabV3(encoder_name="resnet50", encoder_weights="imagenet", in_channels=1, classes=1)
+        return default_size, bce_dice_loss, None, smp.DeepLabV3(encoder_name="resnet50", encoder_weights="imagenet", in_channels=3, classes=1)
     elif model_name == "deeplabv3+":
-        return bce_dice_loss, None, smp.DeepLabV3Plus(encoder_name="resnet50", encoder_weights="imagenet", in_channels=1, classes=1)
+        return default_size, bce_dice_loss, None, smp.DeepLabV3Plus(encoder_name="resnet50", encoder_weights="imagenet", in_channels=3, classes=1)
     else:
         raise ValueError("Model name not supported!")
     
 model_name = sys.argv[1]
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-image_size = 224
+image_size, criterion_s, criterion_c, model = get_model(model_name)
 
 image_transform = transforms.Compose([
     transforms.Resize((image_size, image_size)),
@@ -121,7 +122,6 @@ val_dataset.dataset.transform = val_joint_transform
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-criterion_s, criterion_c, model = get_model(model_name)
 model = model.to(device)
 epochs = 20
 learning_rate = 0.0001

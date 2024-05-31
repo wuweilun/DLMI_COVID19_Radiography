@@ -25,7 +25,7 @@ class Trainer:
 
         self.best_model = None
         self.best_dice = 0.0
-        self.best_acc = 0.0
+        self.best_f1 = 0.0
         self.best_epoch = 0
 
     def dice_coeff(self, predicted, target, smooth=1e-5):
@@ -39,7 +39,7 @@ class Trainer:
         _, preds = torch.max(outputs, dim=1)
         return torch.tensor(torch.sum(preds == labels).item() / len(preds))
     
-    def save_best_model(self, epoch, loss, dice, acc):
+    def save_best_model(self, epoch, loss, dice, f1):
         if self.is_segmentation and self.is_classification and dice > self.best_dice and dice > 0.65:
             self.best_dice = dice
             self.best_epoch = epoch
@@ -47,7 +47,7 @@ class Trainer:
 
             log_directory = 'log'
             os.makedirs(log_directory, exist_ok=True)
-            filename = f'{log_directory}/{self.model_name}_epoch{epoch}_dice{dice:.4f}_acc{acc:.4f}.pth'
+            filename = f'{log_directory}/{self.model_name}_epoch{epoch}_dice{dice:.4f}_f1{f1:.4f}.pth'
             torch.save(self.best_model, filename)           
         elif self.is_segmentation and dice > self.best_dice and dice > 0.65:
             self.best_dice = dice
@@ -56,16 +56,16 @@ class Trainer:
 
             log_directory = 'log'
             os.makedirs(log_directory, exist_ok=True)
-            filename = f'{log_directory}/{self.model_name}_epoch{epoch}_dice{dice:.4f}.pth'
+            filename = f'{log_directory}/{self.model_name}_epoch{epoch}_dice_{dice:.4f}.pth'
             torch.save(self.best_model, filename)
-        elif self.is_classification and acc > self.best_acc and acc > 0.7:
-            self.best_acc = acc
+        elif self.is_classification and f1 > self.best_f1 and f1 > 0.80:
+            self.best_f1 = f1
             self.best_epoch = epoch
             self.best_model = self.model.state_dict()
 
             log_directory = 'log'
             os.makedirs(log_directory, exist_ok=True)
-            filename = f'{log_directory}/{self.model_name}_epoch{epoch}_acc{acc:.4f}.pth'
+            filename = f'{log_directory}/{self.model_name}_epoch{epoch}_f1_{f1:.4f}.pth'
             torch.save(self.best_model, filename)            
 
     def train(self, train_loader, val_loader):
@@ -95,7 +95,13 @@ class Trainer:
                         loss = self.criterion_segmentation(seg_outputs, masks)
                         train_dice += self.dice_coeff(seg_outputs, masks).item()
                     elif self.is_classification:
-                        class_outputs = self.model(images)
+                        if self.model_name.startswith("dinov2"):
+                            outputs = self.model(images)
+                            last_hidden_states = outputs.last_hidden_state[:, 0, :]
+                            class_outputs = self.model.classifier(last_hidden_states)
+                        else:
+                            class_outputs = self.model(images)
+                        # print(class_outputs.shape)
                         loss = self.criterion_classification(class_outputs, labels)
                         train_accuracy += self.accuracy(class_outputs, labels).item()
         
@@ -128,7 +134,12 @@ class Trainer:
                             val_loss += val_loss_segmentation.item()
                             val_dice += self.dice_coeff(seg_outputs, masks).item()
                         elif self.is_classification:
-                            class_outputs = self.model(images)
+                            if self.model_name.startswith("dinov2"):
+                                outputs = self.model(images)
+                                last_hidden_states = outputs.last_hidden_state[:, 0, :]
+                                class_outputs = self.model.classifier(last_hidden_states)
+                            else:
+                                class_outputs = self.model(images)
                             val_loss_classification = self.criterion_classification(class_outputs, labels)
                             val_loss += val_loss_classification.item()
                             # val_accuracy += self.accuracy(class_outputs, labels).item()
@@ -152,4 +163,4 @@ class Trainer:
                 "Val Accuracy": accuracy
             })
 
-            self.save_best_model(epoch + 1, val_loss / num_batches_val, val_dice / num_batches_val, val_accuracy / num_batches_val)
+            self.save_best_model(epoch + 1, val_loss / num_batches_val, val_dice / num_batches_val, f1)
