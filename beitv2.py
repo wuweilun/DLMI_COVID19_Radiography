@@ -14,27 +14,27 @@ from torchvision import models
 from torch.utils.data import random_split, Dataset, DataLoader
 from utils import CustomDataset, bce_dice_loss, Trainer, JointTransform
 from transformers import AutoModel
+import timm
 import random
 random.seed(42)
 np.random.seed(42)
 torch.manual_seed(42)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(42)
-
 model_name = sys.argv[1]
 ratio = float(sys.argv[2])
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-image_size, criterion_s, criterion_c, model = 224, None, torch.nn.CrossEntropyLoss(), AutoModel.from_pretrained('facebook/dinov2-base')
+model = timm.create_model(
+    'beitv2_base_patch16_224.in1k_ft_in22k',
+    pretrained=True,
+    num_classes=4,
+)
+image_size, criterion_s, criterion_c = 224, None, torch.nn.CrossEntropyLoss()
 num_classes = 4
-model.classifier = nn.Linear(768, num_classes) 
-# for param in model.parameters():
-#     param.requires_grad = False
-# for param in model.classifier.parameters():
-#     param.requires_grad = True
-for param in model.embeddings.parameters():
+for param in model.patch_embed.parameters():
     param.requires_grad = False
 freeze_up_to_layer = 8
-for layer_index, layer in enumerate(model.encoder.layer):
+for layer_index, layer in enumerate(model.blocks):
     if layer_index < freeze_up_to_layer:
         for param in layer.parameters():
             param.requires_grad = False

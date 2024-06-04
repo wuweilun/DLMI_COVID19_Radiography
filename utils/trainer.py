@@ -5,7 +5,8 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from torch.cuda.amp import GradScaler, autocast
 from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix, accuracy_score
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 class Trainer:
     def __init__(self, model, model_name, num_epochs, optimizer, device, project_name, criterion_segmentation=None, criterion_classification=None):
@@ -39,7 +40,7 @@ class Trainer:
         _, preds = torch.max(outputs, dim=1)
         return torch.tensor(torch.sum(preds == labels).item() / len(preds))
     
-    def save_best_model(self, epoch, loss, dice, f1):
+    def save_best_model(self, epoch, loss, dice, f1, cm):
         if self.is_segmentation and self.is_classification and dice > self.best_dice and dice > 0.65:
             self.best_dice = dice
             self.best_epoch = epoch
@@ -49,6 +50,16 @@ class Trainer:
             os.makedirs(log_directory, exist_ok=True)
             filename = f'{log_directory}/{self.model_name}_epoch{epoch}_dice{dice:.4f}_f1{f1:.4f}.pth'
             torch.save(self.best_model, filename)           
+            
+            categories = ['COVID', 'Lung_Opacity', 'Normal', 'Viral Pneumonia']
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(cm, annot=True, fmt="d", cmap='Blues', xticklabels=categories, yticklabels=categories)
+            plt.xlabel('Predicted Labels')
+            plt.ylabel('True Labels')
+            plt.title(f'Confusion Matrix - {self.model_name}')
+            plt.show()
+            plt.savefig(f'{log_directory}/confusion_matrix_{self.model_name}.png', format='png', dpi=300)
+            plt.close()    
         elif self.is_segmentation and dice > self.best_dice and dice > 0.65:
             self.best_dice = dice
             self.best_epoch = epoch
@@ -66,7 +77,17 @@ class Trainer:
             log_directory = 'log'
             os.makedirs(log_directory, exist_ok=True)
             filename = f'{log_directory}/{self.model_name}_epoch{epoch}_f1_{f1:.4f}.pth'
-            torch.save(self.best_model, filename)            
+            torch.save(self.best_model, filename)  
+            
+            categories = ['COVID', 'Lung_Opacity', 'Normal', 'Viral Pneumonia']
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(cm, annot=True, fmt="d", cmap='Blues', xticklabels=categories, yticklabels=categories)
+            plt.xlabel('Predicted Labels')
+            plt.ylabel('True Labels')
+            plt.title(f'Confusion Matrix - {self.model_name}')
+            plt.show()
+            plt.savefig(f'{log_directory}/confusion_matrix_{self.model_name}.png', format='png', dpi=300)
+            plt.close()          
 
     def train(self, train_loader, val_loader):
         scaler = GradScaler()
@@ -87,7 +108,7 @@ class Trainer:
                         seg_outputs, class_outputs = self.model(images)
                         loss_segmentation = self.criterion_segmentation(seg_outputs, masks)
                         loss_classification = self.criterion_classification(class_outputs, labels)
-                        loss = loss_segmentation + loss_classification
+                        loss = 0.5 * loss_segmentation + 0.5 * loss_classification
                         train_dice += self.dice_coeff(seg_outputs, masks).item()
                         train_accuracy += self.accuracy(class_outputs, labels).item()
                     elif self.is_segmentation:
@@ -150,6 +171,7 @@ class Trainer:
             recall = recall_score(all_labels, all_preds, average='macro')
             f1 = f1_score(all_labels, all_preds, average='macro')
             accuracy = accuracy_score(all_labels, all_preds) 
+            cm = confusion_matrix(all_labels, all_preds)
             # Log epoch-level metrics
             wandb.log({
                 "Train Loss": train_loss / num_batches,
@@ -163,4 +185,4 @@ class Trainer:
                 "Val Accuracy": accuracy
             })
 
-            self.save_best_model(epoch + 1, val_loss / num_batches_val, val_dice / num_batches_val, f1)
+            self.save_best_model(epoch + 1, val_loss / num_batches_val, val_dice / num_batches_val, f1, cm)

@@ -15,7 +15,13 @@ from torch.utils.data import random_split, Dataset, DataLoader
 from utils import CustomDataset, bce_dice_loss, Trainer, JointTransform
 import segmentation_models_pytorch as smp
 from torchvision.models import convnext_base, densenet161, efficientnet_v2_l, resnext101_64x4d, swin_b, vit_b_16
-torch.manual_seed(123)
+from vnet import VNet
+import random
+random.seed(42)
+np.random.seed(42)
+torch.manual_seed(42)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(42)
 
 def get_model(model_name):
     num_classes = 4 
@@ -86,6 +92,8 @@ def get_model(model_name):
         return default_size, bce_dice_loss, None, smp.DeepLabV3(encoder_name="resnet50", encoder_weights="imagenet", in_channels=3, classes=1)
     elif model_name == "deeplabv3+":
         return default_size, bce_dice_loss, None, smp.DeepLabV3Plus(encoder_name="resnet50", encoder_weights="imagenet", in_channels=3, classes=1)
+    elif model_name == "vnet":
+        return default_size, bce_dice_loss, torch.nn.CrossEntropyLoss(), VNet(n_channels=3, n_classes_segmentation=1, n_classes_classification=4)
     else:
         raise ValueError("Model name not supported!")
     
@@ -124,7 +132,7 @@ val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 model = model.to(device)
 epochs = 20
-learning_rate = 0.0001
+learning_rate = 0.00005
 weight_decay = 1e-6
 
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
